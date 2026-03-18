@@ -10,9 +10,9 @@ Build Python tooling to analyze eCAL recording timestamp behavior and message dr
 - [x] Add unit tests first and implement until green.
 
 ## Phase 2 (next)
-- [ ] Build eCAL adapter layer using Python bindings to read measurements directly.
-- [ ] Persist normalized data as Parquet/CSV for reproducible post-processing.
-- [ ] Add fixture-based integration tests against small sample recordings.
+- [x] Build eCAL adapter layer using Python bindings to read measurements directly (`load_measurement_samples`, `analyze_measurement`).
+- [x] Persist normalized data as Parquet/CSV for reproducible post-processing.
+- [x] Add fixture-based integration tests against small sample recordings.
 
 ## Phase 3 (next)
 - [ ] Add visualization module (timeline + channel/time heatmap).

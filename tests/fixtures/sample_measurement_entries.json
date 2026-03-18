@@ -1,0 +1,11 @@
+{
+  "cam": [
+    {"snd_timestamp": 0, "rcv_timestamp": 10, "counter": 1},
+    {"snd_timestamp": 100, "rcv_timestamp": 110, "counter": 2},
+    {"snd_timestamp": 400, "rcv_timestamp": 410, "counter": 5}
+  ],
+  "lidar": [
+    {"snd_timestamp": 50, "rcv_timestamp": 70, "counter": 10},
+    {"snd_timestamp": 150, "rcv_timestamp": 170, "counter": 11}
+  ]
+}
