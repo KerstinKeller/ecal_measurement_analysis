@@ -15,10 +15,10 @@ Build Python tooling to analyze eCAL recording timestamp behavior and message dr
 - [x] Add fixture-based integration tests against small sample recordings.
 
 ## Phase 3 (next)
-- [ ] Add visualization module (timeline + channel/time heatmap).
-- [ ] Add CLI command(s): `extract`, `analyze`, `plot`, `report`.
-- [ ] Export static report bundle (JSON summary + PNG/SVG charts).
+- [x] Add visualization module (timeline + channel/time heatmap).
+- [x] Add CLI command(s): `extract`, `analyze`, `plot`, `report`.
+- [x] Export static report bundle (JSON summary + PNG/SVG charts).
 
 ## Phase 4 (next)
-- [ ] Add pattern analysis: periodic losses, burst detection, and channel clustering.
-- [ ] Add CI checks (`pytest`, formatting, linting).
+- [x] Add pattern analysis: periodic losses, burst detection, and channel clustering.
+- [x] Add CI checks (`pytest`, formatting, linting).

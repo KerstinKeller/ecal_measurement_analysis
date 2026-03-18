@@ -2,8 +2,8 @@ from ecal_measurement_analysis.analysis import (
     ChannelDropSummary,
     DropEvent,
     MessageSample,
-    analyze_channel,
     aggregate_drop_windows,
+    analyze_channel,
 )
 
 
