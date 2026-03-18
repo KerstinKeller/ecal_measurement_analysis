@@ -1,67 +1,237 @@
 # eCAL Measurement Analysis
 
-This repository bootstraps a **test-driven Python toolkit** for analyzing timestamp integrity and message drops in eCAL recordings.
+A Python toolkit for analyzing eCAL recording timestamp integrity, drop behavior, synchronized multi-channel loss windows, and higher-level drop patterns.
 
-## Proposed workflow
+---
 
-1. Metadata extraction from eCAL recordings:
-   - Per sample: `channel`, `timestamp_ns`, `sequence`.
-2. Normalization:
-   - Store in one schema (DataFrame or table) for deterministic replay.
-3. Channel-level analysis:
-   - Detect sequence gaps and estimate exact missing windows.
-   - Compute loss ratio per channel.
-4. Cross-channel correlation:
-   - Merge overlapping drop windows.
-   - Flag synchronized loss events across multiple channels.
-5. Visualization:
-   - Timeline view of drop windows.
-   - Heatmap (channel vs. time) for pattern discovery.
-6. Reporting:
-   - Persist JSON/CSV summary artifacts for each measurement batch.
+## What this project does
 
-## TDD strategy
+Given eCAL measurement metadata (channel, timestamps, sequence counters), the toolkit can:
 
-- Start with synthetic sequence fixtures.
-- Encode expected loss windows in unit tests.
-- Add adapter tests once eCAL measurement readers are integrated.
+- detect per-channel sequence gaps and estimate missing message windows,
+- compute channel-level loss ratios,
+- find synchronized cross-channel drop windows,
+- detect **periodic** drop behavior,
+- detect **bursty** drop behavior,
+- cluster channels by overlap similarity of drop windows,
+- export static report bundles for offline review.
 
-## Quick start
+---
+
+## Installation Guide
+
+### 1) Prerequisites
+
+- Python 3.10+
+- `pip`
+- Optional but recommended: a virtual environment (`venv`)
+
+### 2) Standard install
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
-pytest
-```
-
-
-## eCAL integration (Phase 2 progress)
-
-The project now includes a direct adapter for `eclipse-ecal`:
-
-- `load_measurement_entries(path, channels=None)`
-  - Reads metadata from eCAL measurement files via `ecal.measurement.hdf5.Meas`.
-  - Preserves both send and receive clocks in `EcalMessageSample(channel, snd_timestamp_ns, rcv_timestamp_ns, sequence)`.
-- `load_measurement_samples(path, channels=None, timestamp_field="rcv_timestamp")`
-  - Converts raw eCAL entries into `MessageSample(channel, timestamp_ns, sequence)` using either `rcv_timestamp` or `snd_timestamp`.
-- `compute_latency_ns(entries)`
-  - Calculates per-sample one-way latency estimate as `rcv_timestamp_ns - snd_timestamp_ns`.
-- `analyze_measurement(path, ...)`
-  - Loads samples and runs channel-wise drop analysis using existing core analyzers.
-
-Install dependencies:
-
-```bash
+pip install --upgrade pip
 pip install -e .
 ```
 
+This installs runtime dependencies, including:
 
-## Persistence helpers
+- `eclipse-ecal` (measurement ingestion)
+- `pyarrow` (Parquet persistence)
+- `matplotlib` (plot generation)
 
-Normalized outputs can be persisted for reproducible post-processing:
+### 3) Development install
 
-- CSV: `write_message_samples_csv`, `read_message_samples_csv`, `write_ecal_entries_csv`, `read_ecal_entries_csv`
-- Parquet: `write_message_samples_parquet`, `read_message_samples_parquet`, `write_ecal_entries_parquet`, `read_ecal_entries_parquet`
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .[dev]
+```
 
-A fixture-backed integration path exists under `tests/fixtures/sample_measurement_entries.json` and `tests/test_persistence.py` to validate extract -> persist -> analyze behavior.
+Development extras include:
+
+- `pytest`
+- `ruff`
+
+### 4) Verify installation
+
+```bash
+ecal-measurement-analysis --help
+pytest
+```
+
+---
+
+## CLI Usage Guide
+
+The package installs a console command:
+
+```bash
+ecal-measurement-analysis <subcommand> [options]
+```
+
+### Subcommand: `extract`
+
+Extract raw entry metadata from an eCAL measurement into CSV or Parquet.
+
+```bash
+ecal-measurement-analysis extract /path/to/measurement \
+  --output artifacts/entries.csv \
+  --format csv \
+  --channels cam,lidar
+```
+
+Options:
+
+- `measurement_path` (required)
+- `--output` (required)
+- `--format {csv,parquet}` (default: `csv`)
+- `--channels` (comma-separated channel list)
+
+### Subcommand: `analyze`
+
+Run drop analysis on a measurement and export `summary.json`.
+
+```bash
+ecal-measurement-analysis analyze /path/to/measurement \
+  --output artifacts/summary.json \
+  --timestamp-field rcv_timestamp
+```
+
+Options:
+
+- `measurement_path` (required)
+- `--output` (required)
+- `--channels` (optional)
+- `--timestamp-field {rcv_timestamp,snd_timestamp}` (default: `rcv_timestamp`)
+
+### Subcommand: `plot`
+
+Create static plots from an existing `summary.json`.
+
+```bash
+ecal-measurement-analysis plot artifacts/summary.json \
+  --output-dir artifacts/report
+```
+
+Outputs:
+
+- `timeline.png`
+- `heatmap.png`
+
+### Subcommand: `report`
+
+One-shot command: analyze + report export.
+
+```bash
+ecal-measurement-analysis report /path/to/measurement \
+  --output-dir artifacts/report \
+  --timestamp-field rcv_timestamp
+```
+
+Outputs:
+
+- `summary.json`
+- `timeline.png`
+- `heatmap.png`
+
+---
+
+## Python API Usage Guide
+
+### Core adapter + analysis
+
+```python
+from ecal_measurement_analysis import analyze_measurement
+
+summaries = analyze_measurement("/path/to/measurement")
+for summary in summaries:
+    print(summary.channel, summary.loss_ratio, summary.lost_samples)
+```
+
+### Report generation
+
+```python
+from ecal_measurement_analysis import analyze_measurement, write_summary_report_json
+
+summaries = analyze_measurement("/path/to/measurement")
+write_summary_report_json(summaries, "artifacts/summary.json")
+```
+
+### Pattern analysis (Phase 4)
+
+```python
+from ecal_measurement_analysis import (
+    analyze_measurement,
+    detect_periodic_losses,
+    detect_drop_bursts,
+    cluster_channels_by_overlap,
+)
+
+summaries = analyze_measurement("/path/to/measurement")
+
+for summary in summaries:
+    periodic = detect_periodic_losses(summary)
+    bursts = detect_drop_bursts(summary, max_separation_ns=50_000_000)
+    print(summary.channel, periodic, bursts)
+
+clusters = cluster_channels_by_overlap(summaries)
+print(clusters)
+```
+
+---
+
+## Report Format (`summary.json`)
+
+The report includes:
+
+- `channels`: per-channel drop summaries and events,
+- `synchronized_windows`: overlapping windows across 2+ channels,
+- `patterns`:
+  - `periodic_losses`,
+  - `bursts`,
+  - `channel_clusters`,
+- `totals`: overall expected/lost counts and global loss ratio.
+
+---
+
+## Development / Quality
+
+### Run tests
+
+```bash
+pytest
+```
+
+### Run lints
+
+```bash
+ruff check .
+```
+
+### CI
+
+A GitHub Actions workflow is included at `.github/workflows/ci.yml` and runs:
+
+- `pytest`
+- `ruff check .`
+
+---
+
+## Troubleshooting
+
+- **`eclipse-ecal` import errors**: install or verify compatible eCAL Python bindings.
+- **Parquet errors**: ensure `pyarrow` is available.
+- **Plot errors**: ensure `matplotlib` is installed.
+- **No drop events in plots**: heatmap/timeline may be sparse or empty if channels have no inferred losses.
+
+---
+
+## Roadmap status
+
+- Phase 1: ✅ complete
+- Phase 2: ✅ complete
+- Phase 3: ✅ complete
+- Phase 4: ✅ complete (pattern analysis + CI checks)
